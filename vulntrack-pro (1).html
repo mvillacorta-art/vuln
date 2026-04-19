@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VulnTrack Pro — Gestor de Vulnerabilidades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --plum:#814e83; --plum-d:#60345e; --plum-darker:#4a2648;
+  --gold:#fcc123; --amber:#b18a20; --magenta:#b33f76;
+  --bg:#f9f5fa; --bg2:#f3edf5; --bg3:#ecddf0;
+  --panel:#ffffff; --border:rgba(96,52,94,0.13); --border-hi:rgba(96,52,94,0.30);
+  --text:#2e1430; --text-2:#523658; --text-3:#7a5080;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif; --serif:'IBM Plex Serif',serif;
+  --nav-w:240px;
+  --shadow:0 1px 4px rgba(96,52,94,0.09),0 0 0 1px rgba(96,52,94,0.07);
+  --shadow-md:0 4px 20px rgba(96,52,94,0.12),0 0 0 1px rgba(96,52,94,0.08);
+  --sev-critical:#b83232; --sev-high:#c25a1a; --sev-medium:#b18a20; --sev-low:#1a7a4a;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+::selection{background:var(--gold);color:var(--bg)}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+.class-bar{background:linear-gradient(90deg,var(--plum-darker),var(--plum-d) 40%,var(--plum));color:#fff;padding:5px 20px 6px;font-family:var(--mono);font-size:.6rem;letter-spacing:3px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:24px;flex-shrink:0}
+.class-bar .pill{background:rgba(255,255,255,.15);border:1px solid rgba(255,232,85,.4);border-radius:2px;padding:1px 8px;color:#ffe855}
+
+.app-layout{display:flex;flex:1;overflow:hidden;position:relative}
+.app-layout::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 15% 0%,rgba(179,63,118,.04),transparent 55%),radial-gradient(ellipse at 85% 5%,rgba(252,193,35,.025),transparent 45%)}
+
+nav{width:var(--nav-w);min-width:var(--nav-w);height:100vh;background:#fff;border-right:2px solid var(--plum-d);display:flex;flex-direction:column;position:relative;z-index:10;flex-shrink:0;box-shadow:2px 0 8px rgba(96,52,94,.08)}
+.nav-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.nav-logo h1{font-size:1.1em;font-weight:600;font-family:var(--serif);color:var(--plum-d);letter-spacing:-.02em}
+.nav-logo p{font-size:.65em;color:var(--text-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+.nav-live{display:flex;align-items:center;gap:6px;margin-top:10px;font-family:var(--mono);font-size:.62em;color:var(--plum);text-transform:uppercase;letter-spacing:.1em}
+.nav-live-dot{width:7px;height:7px;border-radius:50%;background:var(--magenta);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(179,63,118,.4)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(179,63,118,0)}}
+.nav-section{padding:18px 12px 6px;font-size:.62em;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:.12em}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:.88em;font-weight:500;color:var(--text-2);transition:all .2s;border-left:3px solid transparent}
+.nav-item:hover{color:var(--plum-d);background:rgba(129,78,131,.08)}
+.nav-item.active{color:var(--plum-d);background:rgba(129,78,131,.10);border-left-color:var(--plum-d)}
+.nav-item .icon{font-size:1em;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--magenta);color:#fff;font-family:var(--mono);font-size:.65em;padding:2px 7px;border-radius:10px;font-weight:700}
+.nav-footer{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);font-size:.7em;color:var(--text-3);font-family:var(--mono);background:var(--bg2)}
+.api-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.api-dot.ok{background:#1a7a4a}.api-dot.warn{background:#b18a20}.api-dot.err{background:#b83232}
+.nav-clock{font-family:var(--mono);font-size:.7em;color:var(--plum);margin-top:6px}
+
+main{flex:1;overflow-y:auto;height:100vh;position:relative;z-index:1}
+.view{display:none;padding:28px 32px 48px}
+.view.active{display:block}
+
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;gap:16px;flex-wrap:wrap}
+.page-header h2{font-size:1.5em;font-weight:600;font-family:var(--serif);letter-spacing:-.02em}
+.page-header p{font-size:.85em;color:var(--text-3);margin-top:4px;font-family:var(--mono)}
+.header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.btn{padding:9px 20px;border-radius:8px;border:none;cursor:pointer;font-family:var(--sans);font-weight:600;font-size:.84em;letter-spacing:.03em;transition:all .2s;white-space:nowrap}
+.btn-primary{background:var(--plum-d);color:#fff}.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(96,52,94,.35)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-2)}.btn-ghost:hover{border-color:var(--plum);color:var(--plum)}
+.btn-plum{background:var(--plum);color:#fff;font-weight:700}.btn-plum:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(129,78,131,.35)}
+.btn-danger{background:rgba(184,50,50,.1);border:1px solid rgba(184,50,50,.3);color:var(--sev-critical)}.btn-danger:hover{background:rgba(184,50,50,.2)}
+.btn-sm{padding:6px 14px;font-size:.78em}
+.btn-icon{padding:5px 8px;background:transparent;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.8em;color:var(--text-3);transition:all .15s}.btn-icon:hover{border-color:var(--plum);color:var(--plum)}
+
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px}
+.grid-2-1{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px}
+
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card-accent::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--magenta),var(--plum),var(--amber))}
+.card-title{font-size:.72em;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);margin-bottom:10px}
+.kpi-val{font-size:2.4em;font-weight:800;font-family:var(--mono);line-height:1;color:var(--plum-d)}
+.kpi-sub{font-size:.78em;color:var(--text-3);margin-top:6px}
+.kpi-trend{display:inline-flex;align-items:center;gap:4px;font-size:.75em;font-family:var(--mono);padding:2px 8px;border-radius:10px;margin-top:8px}
+.kpi-trend.up{background:rgba(184,50,50,.1);color:var(--sev-critical)}
+.kpi-trend.down{background:rgba(26,122,74,.1);color:#1a7a4a}
+
+.badge{padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:.68em;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.b-type{background:rgba(129,78,131,.1);border:1px solid rgba(129,78,131,.3);color:var(--plum-d)}
+.b-critical{background:rgba(184,50,50,.1);border:1px solid rgba(184,50,50,.35);color:#b83232}
+.b-high{background:rgba(194,90,26,.1);border:1px solid rgba(194,90,26,.35);color:#c25a1a}
+.b-medium{background:rgba(177,138,32,.12);border:1px solid rgba(177,138,32,.35);color:#7a5800}
+.b-low{background:rgba(26,122,74,.1);border:1px solid rgba(26,122,74,.3);color:#1a7a4a}
+.b-open{background:rgba(184,50,50,.08);border:1px solid rgba(184,50,50,.2);color:#b83232}
+.b-progress{background:rgba(129,78,131,.1);border:1px solid rgba(129,78,131,.25);color:var(--plum-d)}
+.b-review{background:rgba(177,138,32,.1);border:1px solid rgba(177,138,32,.25);color:#7a5800}
+.b-closed{background:rgba(26,122,74,.1);border:1px solid rgba(26,122,74,.25);color:#1a7a4a}
+.b-accepted{background:rgba(90,90,90,.08);border:1px solid rgba(90,90,90,.2);color:#5a5a5a}
+
+.data-table{width:100%;border-collapse:collapse;font-size:.84em}
+.data-table th{text-align:left;padding:10px 14px;font-family:var(--mono);font-size:.68em;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);background:var(--bg2);border-bottom:1px solid var(--border)}
+.data-table td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text-2);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(129,78,131,.04);color:var(--text);cursor:pointer}
+.cve-id{font-family:var(--mono);font-size:.88em;color:var(--plum-d);font-weight:600}
+.cvss-score{font-family:var(--mono);font-size:.9em;font-weight:700}
+.score-crit{color:var(--sev-critical)}.score-high{color:var(--sev-high)}.score-med{color:var(--sev-medium)}.score-low{color:var(--sev-low)}
+
+.bar-chart{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:grid;grid-template-columns:90px 1fr 40px;align-items:center;gap:10px}
+.bar-label{font-size:.8em;color:var(--text-2);text-align:right}
+.bar-bg{height:8px;background:rgba(96,52,94,.1);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.bar-val{font-family:var(--mono);font-size:.75em;color:var(--text-3);text-align:right}
+
+.search-panel{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.search-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--magenta),var(--plum),var(--amber))}
+.search-row{display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:end;margin-bottom:12px}
+.filter-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:6px}
+label{font-family:var(--mono);font-size:.67em;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-2)}
+input[type="text"],input[type="number"],select,textarea{padding:9px 12px;background:var(--bg);border:1px solid rgba(96,52,94,.22);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:.88em;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;width:100%}
+input[type="text"]::placeholder,input[type="number"]::placeholder{color:var(--text-3)}
+input[type="text"]:focus,input[type="number"]:focus,select:focus,textarea:focus{outline:none;border-color:var(--plum);box-shadow:0 0 0 3px rgba(129,78,131,.12)}
+select option{background:#fff;color:var(--text)}
+
+/* ── INLINE EDIT ── */
+.editable{cursor:text;border-radius:4px;padding:2px 4px;margin:-2px -4px;transition:background .15s}
+.editable:hover{background:rgba(129,78,131,.08)}
+.editable:focus{outline:none;background:rgba(129,78,131,.1);box-shadow:0 0 0 2px rgba(129,78,131,.25)}
+.edit-hint{font-size:.62em;color:var(--text-3);font-family:var(--mono);margin-left:6px;opacity:0;transition:opacity .2s}
+.card:hover .edit-hint,.panel-header:hover .edit-hint{opacity:1}
+
+/* ── KANBAN ── */
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start}
+.kanban-col{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;min-height:200px;transition:background .2s,border-color .2s}
+.kanban-col.drag-over{background:rgba(129,78,131,.08);border-color:var(--plum);border-style:dashed}
+.kanban-col-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.kanban-col-title{font-size:.78em;font-weight:700;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text-2)}
+.kanban-count{margin-left:auto;background:rgba(129,78,131,.12);color:var(--plum-d);font-family:var(--mono);font-size:.68em;font-weight:700;padding:2px 8px;border-radius:10px}
+
+.inc-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:10px;cursor:grab;transition:all .2s;box-shadow:var(--shadow);user-select:none;position:relative}
+.inc-card:hover{border-color:var(--plum);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.inc-card.dragging{opacity:.4;cursor:grabbing;transform:rotate(1.5deg) scale(.97)}
+.inc-card.drag-ghost{opacity:0}
+.drop-indicator{height:3px;background:var(--plum);border-radius:2px;margin-bottom:8px;display:none}
+.drop-indicator.visible{display:block}
+
+.inc-card-title{font-size:.84em;font-weight:600;color:var(--text);margin-bottom:6px}
+.inc-meta{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.inc-priority{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.inc-assigned{font-family:var(--mono);font-size:.65em;color:var(--text-3);flex:1}
+.inc-date{font-family:var(--mono);font-size:.62em;color:var(--text-3)}
+.inc-tags{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.inc-tag{font-family:var(--mono);font-size:.62em;padding:2px 7px;border-radius:4px;background:rgba(129,78,131,.08);border:1px solid rgba(129,78,131,.2);color:var(--plum-d)}
+.inc-card-actions{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.inc-card:hover .inc-card-actions{opacity:1}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(46,20,48,.35);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border:1px solid var(--border);border-radius:16px;padding:28px;max-width:680px;width:90%;max-height:88vh;overflow-y:auto;position:relative;box-shadow:var(--shadow-md)}
+.modal-title{font-size:1.1em;font-weight:600;font-family:var(--serif);color:var(--text);margin-bottom:20px}
+.modal-close{position:absolute;top:16px;right:16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text-2);width:32px;height:32px;cursor:pointer;font-size:1.1em;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{border-color:var(--plum);color:var(--plum)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-field{display:flex;flex-direction:column;gap:6px}
+.form-field.full{grid-column:1/-1}
+textarea{resize:vertical;min-height:72px}
+.form-actions{display:flex;gap:10px;margin-top:20px}
+
+/* detail modal editable fields */
+.detail-field-wrap{margin-bottom:14px}
+.detail-field-wrap label{display:block;font-family:var(--mono);font-size:.62em;text-transform:uppercase;letter-spacing:.1em;color:var(--plum);margin-bottom:4px}
+.detail-editable{font-size:.9em;color:var(--text);padding:8px 12px;background:var(--bg2);border:1px solid transparent;border-radius:7px;min-height:36px;transition:all .15s;cursor:text;line-height:1.5}
+.detail-editable:hover{border-color:var(--border-hi);background:#fff}
+.detail-editable:focus{outline:none;border-color:var(--plum);background:#fff;box-shadow:0 0 0 3px rgba(129,78,131,.1)}
+.detail-select{padding:7px 10px;background:var(--bg2);border:1px solid transparent;border-radius:7px;font-size:.9em;color:var(--text);cursor:pointer}
+.detail-select:focus{outline:none;border-color:var(--plum);background:#fff;box-shadow:0 0 0 3px rgba(129,78,131,.1)}
+
+.cvss-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.cvss-header{display:flex;justify-content:space-between;margin-bottom:6px;font-family:var(--mono);font-size:.75em;color:var(--text-3)}
+.cvss-bar-track{height:8px;background:rgba(96,52,94,.1);border-radius:4px;overflow:hidden}
+.cvss-bar-track .fill{height:100%;border-radius:4px;transition:width .5s}
+
+.vc-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.vc-meta-item{padding:8px 10px;background:var(--bg2);border-radius:7px;border:1px solid var(--border)}
+.vc-meta-label{font-family:var(--mono);font-size:.62em;text-transform:uppercase;letter-spacing:.1em;color:var(--plum);margin-bottom:3px}
+.vc-meta-val{font-size:.88em;font-weight:600;color:var(--text)}
+
+.reports-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.report-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.report-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--magenta),var(--plum),var(--amber))}
+.report-card:hover{border-color:var(--plum-d);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.report-icon{font-size:1.8em;margin-bottom:10px}
+.report-name{font-size:.95em;font-weight:600;color:var(--text);margin-bottom:5px}
+.report-desc{font-size:.78em;color:var(--text-3);line-height:1.5;margin-bottom:14px}
+
+.pagination{display:flex;align-items:center;gap:6px;padding:12px 0 0;justify-content:flex-end}
+.pg-btn{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;color:var(--text-3);font-size:.78em;font-family:var(--mono);cursor:pointer;transition:all .15s}
+.pg-btn.active{background:var(--plum-d);border-color:var(--plum-d);color:#fff}
+.pg-btn:hover:not(.active){border-color:var(--plum);color:var(--plum)}
+.pg-info{font-family:var(--mono);font-size:.75em;color:var(--text-3);margin-right:8px}
+
+.toast{position:fixed;bottom:24px;right:28px;background:#fff;border:1px solid var(--border-hi);border-radius:12px;padding:12px 18px;font-size:.86em;color:var(--text);display:none;z-index:2000;box-shadow:var(--shadow-md);animation:toastIn .25s ease}
+@keyframes toastIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.open{display:block}
+
+.hint-box{text-align:center;padding:60px 20px}
+.hint-box .ic{font-size:2.8em;opacity:.25;margin-bottom:14px}
+.hint-box h3{color:var(--text-2);font-size:1em;margin-bottom:8px}
+.hint-box p{color:var(--text-3);font-size:.84em;line-height:1.6}
+
+/* edit badge */
+.edit-badge{display:inline-flex;align-items:center;gap:4px;font-size:.6em;font-family:var(--mono);background:rgba(129,78,131,.08);border:1px solid rgba(129,78,131,.2);color:var(--plum);padding:1px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;opacity:0;transition:opacity .2s}
+*:hover>.edit-badge{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="class-bar">
+  <span class="pill">CONFIDENCIAL</span>
+  VULNTRACK PRO — PLATAFORMA DE GESTIÓN DE VULNERABILIDADES
+  <span class="pill">USO INTERNO</span>
+</div>
+
+<div class="app-layout">
+<nav>
+  <div class="nav-logo">
+    <h1>VulnTrack Pro</h1>
+    <p>Vulnerability Management</p>
+    <div class="nav-live"><div class="nav-live-dot"></div>Sistema activo</div>
+  </div>
+  <div class="nav-section">Principal</div>
+  <div class="nav-item active" onclick="showView('dashboard')"><span class="icon">◈</span> Dashboard</div>
+  <div class="nav-item" onclick="showView('vulnerabilities')"><span class="icon">⚠</span> Vulnerabilidades <span class="nav-badge" id="badge-open">—</span></div>
+  <div class="nav-item" onclick="showView('kanban')"><span class="icon">▦</span> Gestión / Kanban</div>
+  <div class="nav-section">Análisis</div>
+  <div class="nav-item" onclick="showView('assets')"><span class="icon">◫</span> Activos</div>
+  <div class="nav-item" onclick="showView('reports')"><span class="icon">≡</span> Informes</div>
+  <div class="nav-section">Acciones</div>
+  <div class="nav-item" onclick="openNewVuln()"><span class="icon">＋</span> Nueva Vulnerabilidad</div>
+  <div class="nav-footer">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span class="api-dot ok"></span>NIST NVD · Conectado</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span class="api-dot warn"></span>MITRE ATT&amp;CK · Pendiente</div>
+    <div style="display:flex;align-items:center;gap:6px"><span class="api-dot ok"></span>INCIBE-CERT · Activo</div>
+    <div class="nav-clock" id="clock">--:--:--</div>
+  </div>
+</nav>
+
+<main>
+
+<!-- DASHBOARD -->
+<div class="view active" id="view-dashboard">
+  <div class="page-header">
+    <div>
+      <h2>Panel de Control</h2>
+      <p>Estado consolidado · <span id="dash-date">—</span></p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openExport()">↓ Exportar</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewVuln()">＋ Nueva Vulnerabilidad</button>
+    </div>
+  </div>
+  <div class="grid-5" id="kpi-row"></div>
+  <div class="grid-2-1">
+    <div class="card card-accent">
+      <div class="card-title">Vulnerabilidades recientes</div>
+      <div id="recent-table-wrap"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card"><div class="card-title">Distribución por severidad</div><div class="bar-chart" id="sev-bar-chart"></div></div>
+      <div class="card"><div class="card-title">KPIs de remediación</div><div id="kpi-panel"></div></div>
+    </div>
+  </div>
+  <div class="grid-3">
+    <div class="card"><div class="card-title">Top activos con riesgo</div><div id="top-assets"></div></div>
+    <div class="card"><div class="card-title">Estado de vulnerabilidades</div><div class="bar-chart" id="status-bar-chart"></div></div>
+    <div class="card card-accent"><div class="card-title">Actividad reciente</div><div id="activity-feed" style="max-height:200px;overflow-y:auto"></div></div>
+  </div>
+</div>
+
+<!-- VULNERABILIDADES -->
+<div class="view" id="view-vulnerabilities">
+  <div class="page-header">
+    <div><h2>Gestión de Vulnerabilidades</h2><p>Haz clic en cualquier celda para editarla · doble clic en fila para detalle completo</p></div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openExport()">↓ Exportar</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewVuln()">＋ Nueva</button>
+    </div>
+  </div>
+  <div class="search-panel">
+    <div class="search-row">
+      <div class="field"><label>Buscar</label><input type="text" id="search-q" placeholder="CVE, activo, descripción..." oninput="filterAndRender()"></div>
+      <div class="field"><label>Severidad</label><select id="filter-sev" onchange="filterAndRender()"><option value="">Todas</option><option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option></select></div>
+      <div class="field"><label>Estado</label><select id="filter-status" onchange="filterAndRender()"><option value="">Todos</option><option>Abierta</option><option>En progreso</option><option>Revisión</option><option>Cerrada</option><option>Aceptada</option></select></div>
+      <div class="field"><label>Categoría</label><select id="filter-cat" onchange="filterAndRender()"><option value="">Todas</option><option>RCE</option><option>Autenticación</option><option>Inyección SQL</option><option>XSS</option><option>SSRF</option><option>Criptografía</option><option>Configuración</option><option>Actualización pendiente</option><option>Otro</option></select></div>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="vuln-table-wrap" style="overflow-x:auto"></div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span class="pg-info" id="vuln-count-label">— resultados</span>
+      <div class="pagination" id="vuln-pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- KANBAN -->
+<div class="view" id="view-kanban">
+  <div class="page-header">
+    <div><h2>Gestión de Incidentes</h2><p>Arrastra las tarjetas entre columnas para cambiar el estado · haz clic en ✎ para editar</p></div>
+    <div class="header-actions">
+      <button class="btn btn-primary btn-sm" onclick="openNewVuln()">＋ Nueva</button>
+    </div>
+  </div>
+  <div class="kanban" id="kanban-board"></div>
+</div>
+
+<!-- ACTIVOS -->
+<div class="view" id="view-assets">
+  <div class="page-header">
+    <div><h2>Inventario de Activos</h2><p>Haz clic en cualquier campo para editarlo</p></div>
+    <div class="header-actions">
+      <button class="btn btn-primary btn-sm" onclick="openNewAsset()">＋ Nuevo Activo</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden"><div id="assets-table-wrap"></div></div>
+</div>
+
+<!-- REPORTS -->
+<div class="view" id="view-reports">
+  <div class="page-header">
+    <div><h2>Informes de Seguridad</h2><p>Generación de informes para auditoría, dirección y equipos técnicos</p></div>
+  </div>
+  <div class="reports-grid" id="reports-grid"></div>
+</div>
+
+</main>
+</div>
+
+<!-- MODAL NUEVA VULNERABILIDAD -->
+<div class="modal-overlay" id="modal-new">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-new')">×</button>
+    <div class="modal-title">Registrar nueva vulnerabilidad</div>
+    <div class="form-grid">
+      <div class="form-field"><label>ID CVE</label><input type="text" id="f-cve" placeholder="CVE-2024-XXXXX"></div>
+      <div class="form-field"><label>Activo afectado</label><input type="text" id="f-asset" placeholder="servidor-web-01"></div>
+      <div class="form-field"><label>Severidad</label><select id="f-sev"><option>Crítica</option><option>Alta</option><option selected>Media</option><option>Baja</option></select></div>
+      <div class="form-field"><label>Puntuación CVSS</label><input type="number" id="f-cvss" placeholder="9.8" min="0" max="10" step="0.1"></div>
+      <div class="form-field"><label>Categoría</label><select id="f-cat"><option>RCE</option><option>Autenticación</option><option>Inyección SQL</option><option>XSS</option><option>SSRF</option><option>Criptografía</option><option>Configuración</option><option>Actualización pendiente</option><option>Otro</option></select></div>
+      <div class="form-field"><label>Responsable</label><input type="text" id="f-owner" placeholder="nombre.apellido"></div>
+      <div class="form-field full"><label>Descripción</label><textarea id="f-desc" placeholder="Vector de ataque, impacto potencial..."></textarea></div>
+      <div class="form-field full"><label>Pasos de remediación</label><textarea id="f-remediation" placeholder="Pasos para mitigar o corregir..."></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveNewVuln()">Guardar vulnerabilidad</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE / EDICIÓN -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal" id="modal-detail-content"></div>
+</div>
+
+<!-- MODAL EXPORTAR -->
+<div class="modal-overlay" id="modal-export">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeModal('modal-export')">×</button>
+    <div class="modal-title">Exportar datos</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="report-card" onclick="doExport('csv')"><div class="report-icon">📄</div><div class="report-name">CSV</div><div class="report-desc">Para Excel o análisis de datos</div></div>
+      <div class="report-card" onclick="doExport('json')"><div class="report-icon">{ }</div><div class="report-name">JSON / STIX 2.1</div><div class="report-desc">Formato estándar de intercambio</div></div>
+      <div class="report-card" onclick="doExport('pdf')"><div class="report-icon">📑</div><div class="report-name">PDF Ejecutivo</div><div class="report-desc">Informe para dirección</div></div>
+      <div class="report-card" onclick="doExport('xml')"><div class="report-icon">🔖</div><div class="report-name">XML / CVRF</div><div class="report-desc">Common Vulnerability Reporting</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO ACTIVO -->
+<div class="modal-overlay" id="modal-asset">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="closeModal('modal-asset')">×</button>
+    <div class="modal-title">Añadir nuevo activo</div>
+    <div class="form-grid">
+      <div class="form-field"><label>Nombre</label><input type="text" id="a-name" placeholder="srv-nombre-01"></div>
+      <div class="form-field"><label>Tipo</label><input type="text" id="a-type" placeholder="Servidor Web"></div>
+      <div class="form-field"><label>IP / Red</label><input type="text" id="a-ip" placeholder="192.168.1.x"></div>
+      <div class="form-field"><label>Sistema Operativo</label><input type="text" id="a-os" placeholder="Ubuntu 22.04"></div>
+      <div class="form-field"><label>Responsable</label><input type="text" id="a-owner" placeholder="nombre.apellido"></div>
+      <div class="form-field"><label>Nivel de riesgo</label><select id="a-risk"><option>Crítico</option><option>Alto</option><option selected>Medio</option><option>Bajo</option></select></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveNewAsset()">Guardar activo</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-asset')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════
+let VULNS = [
+  {id:'CVE-2024-21762',asset:'fw-perimetral-01',sev:'Crítica',cvss:9.8,cat:'RCE',status:'Abierta',owner:'carlos.ruiz',date:'2024-12-01',desc:'Vulnerabilidad crítica de ejecución remota de código en FortiOS. Permite a un atacante no autenticado ejecutar código arbitrario a través de una solicitud HTTP especialmente diseñada.',remediation:'Actualizar FortiOS a versión 7.4.3 o superior. Aplicar reglas de WAF. Restringir acceso administrativo a rangos IP de gestión.'},
+  {id:'CVE-2024-3400',asset:'vpn-gateway-02',sev:'Crítica',cvss:10.0,cat:'RCE',status:'En progreso',owner:'ana.garcia',date:'2024-11-28',desc:'Inyección de comandos en GlobalProtect de PAN-OS. CVSS 10.0. Explotación activa documentada por múltiples organismos de inteligencia.',remediation:'Instalar parche urgente PAN-SA-2024-0010. Deshabilitar telemetría del dispositivo como mitigación temporal.'},
+  {id:'CVE-2024-27198',asset:'srv-jenkins-03',sev:'Crítica',cvss:9.8,cat:'Autenticación',status:'Abierta',owner:'luis.torres',date:'2024-11-25',desc:'Bypass de autenticación en JetBrains TeamCity. Permite acceso no autorizado a la instancia sin credenciales válidas.',remediation:'Actualizar a TeamCity 2023.11.4. Revisar usuarios administradores. Auditar accesos recientes.'},
+  {id:'CVE-2024-6387',asset:'srv-ssh-cluster',sev:'Crítica',cvss:8.1,cat:'RCE',status:'Revisión',owner:'marta.sanchez',date:'2024-11-20',desc:'RegreSSHion: condición de carrera en OpenSSH (sshd). Permite ejecución remota como root en Linux x86-64.',remediation:'Actualizar OpenSSH a 9.8p1. Configurar LoginGraceTime=0 como mitigación inmediata.'},
+  {id:'CVE-2024-49113',asset:'ad-server-01',sev:'Alta',cvss:7.5,cat:'Configuración',status:'En progreso',owner:'carlos.ruiz',date:'2024-11-18',desc:'Vulnerabilidad DoS en Windows LDAP que puede causar denegación de servicio al controlador de dominio.',remediation:'Aplicar parche KB5048667. Monitorizar tráfico LDAP anómalo.'},
+  {id:'CVE-2024-38063',asset:'srv-web-prod-01',sev:'Alta',cvss:9.8,cat:'RCE',status:'Cerrada',owner:'ana.garcia',date:'2024-11-15',desc:'Vulnerabilidad en stack TCP/IP de Windows (IPv6). RCE sin autenticación via paquetes IPv6 manipulados.',remediation:'Parche KB5040442 aplicado el 2024-11-16. IPv6 deshabilitado en interfaces innecesarias.'},
+  {id:'CVE-2024-30078',asset:'router-core-02',sev:'Alta',cvss:8.8,cat:'RCE',status:'Abierta',owner:'luis.torres',date:'2024-11-10',desc:'Vulnerabilidad en driver Wi-Fi de Windows. RCE desde rango de red Wi-Fi sin autenticación.',remediation:'Instalar actualizaciones de seguridad de junio 2024. Segmentar redes inalámbricas.'},
+  {id:'CVE-2024-1708',asset:'srv-anyconnect-01',sev:'Alta',cvss:8.4,cat:'Autenticación',status:'Abierta',owner:'marta.sanchez',date:'2024-11-08',desc:'Path traversal en ScreenConnect permite acceso no autenticado al sistema de archivos del servidor.',remediation:'Actualizar a ScreenConnect 23.9.8 o superior inmediatamente.'},
+  {id:'CVE-2024-23897',asset:'srv-jenkins-03',sev:'Alta',cvss:9.8,cat:'Inyección SQL',status:'Cerrada',owner:'carlos.ruiz',date:'2024-11-05',desc:'Lectura de archivos arbitraria en Jenkins CLI que puede conducir a RCE.',remediation:'Actualizado a Jenkins 2.442. CLI desactivada vía HTTP.'},
+  {id:'CVE-2024-5806',asset:'srv-sftp-01',sev:'Alta',cvss:9.1,cat:'Autenticación',status:'En progreso',owner:'ana.garcia',date:'2024-11-02',desc:'Bypass de autenticación en MOVEit Transfer SFTP component.',remediation:'Parche en aplicación. Revisión de logs de los últimos 60 días en curso.'},
+  {id:'CVE-2024-22024',asset:'vpn-gateway-02',sev:'Media',cvss:8.3,cat:'Autenticación',status:'Abierta',owner:'luis.torres',date:'2024-10-28',desc:'XXE en Ivanti Connect Secure permite bypass de autenticación en endpoints SAML.',remediation:'Actualizar a versión 22.7R2.4. Filtrado XML estricto en el gateway.'},
+  {id:'CVE-2024-4947',asset:'srv-chrome-deploy',sev:'Media',cvss:6.5,cat:'Otro',status:'Revisión',owner:'marta.sanchez',date:'2024-10-25',desc:'Confusión de tipos en V8 (Chrome < 125.0.6422.60). Permite heap corruption remota.',remediation:'Actualizar Google Chrome vía GPO. Forzar actualización en todos los equipos.'},
+  {id:'CVE-2024-26169',asset:'dc-windows-02',sev:'Media',cvss:7.8,cat:'Configuración',status:'Abierta',owner:'carlos.ruiz',date:'2024-10-20',desc:'Escalada de privilegios en Windows Error Reporting Service. Obtención de permisos SYSTEM.',remediation:'Aplicar parche de marzo 2024. Restringir permisos en servicio WER.'},
+  {id:'CVE-2024-20767',asset:'srv-coldfusion-01',sev:'Media',cvss:7.4,cat:'Autenticación',status:'Abierta',owner:'ana.garcia',date:'2024-10-18',desc:'Control de acceso inadecuado en Adobe ColdFusion permite leer archivos arbitrarios.',remediation:'Aplicar APSB24-14. Deshabilitar acceso externo al panel de administración.'},
+  {id:'CVE-2024-21893',asset:'vpn-gateway-02',sev:'Media',cvss:8.2,cat:'SSRF',status:'Cerrada',owner:'luis.torres',date:'2024-10-15',desc:'SSRF en componente SAML de Ivanti Connect Secure. Explotación activa por grupos APT.',remediation:'Parche aplicado. Monitorización de logs SAML activa.'},
+  {id:'CVE-2024-4358',asset:'srv-telerik-01',sev:'Baja',cvss:9.8,cat:'Autenticación',status:'Abierta',owner:'marta.sanchez',date:'2024-10-10',desc:'Bypass de autenticación en Progress Telerik Reporting Server.',remediation:'Actualizar a 2024 Q1 (10.0.24.305). Revisar políticas de acceso.'},
+  {id:'CVE-2024-3661',asset:'srv-vpnclient',sev:'Baja',cvss:7.6,cat:'Criptografía',status:'Aceptada',owner:'carlos.ruiz',date:'2024-10-05',desc:'TunnelVision: enrutamiento fuera del túnel VPN via DHCP opción 121.',remediation:'Riesgo aceptado (2024-10-12). Killswitch VPN implementado.'},
+];
+
+let ASSETS = [
+  {name:'fw-perimetral-01',type:'Firewall',ip:'10.0.0.1',os:'FortiOS 7.2',owner:'carlos.ruiz',risk:'Crítico'},
+  {name:'vpn-gateway-02',type:'VPN Gateway',ip:'10.0.1.5',os:'PAN-OS 11.0',owner:'ana.garcia',risk:'Crítico'},
+  {name:'srv-jenkins-03',type:'Servidor CI/CD',ip:'192.168.1.45',os:'Ubuntu 22.04 LTS',owner:'luis.torres',risk:'Alto'},
+  {name:'srv-ssh-cluster',type:'Clúster SSH',ip:'10.10.0.0/24',os:'OpenSSH 8.9',owner:'marta.sanchez',risk:'Crítico'},
+  {name:'ad-server-01',type:'Active Directory',ip:'192.168.0.10',os:'Windows Server 2022',owner:'carlos.ruiz',risk:'Alto'},
+  {name:'srv-web-prod-01',type:'Servidor Web',ip:'10.1.2.50',os:'Windows Server 2019',owner:'ana.garcia',risk:'Alto'},
+  {name:'router-core-02',type:'Router Core',ip:'10.0.0.254',os:'IOS-XE 17.9',owner:'luis.torres',risk:'Alto'},
+  {name:'srv-sftp-01',type:'SFTP Server',ip:'10.2.0.20',os:'MOVEit Transfer',owner:'ana.garcia',risk:'Alto'},
+  {name:'dc-windows-02',type:'Domain Controller',ip:'192.168.0.11',os:'Windows Server 2022',owner:'carlos.ruiz',risk:'Medio'},
+  {name:'srv-coldfusion-01',type:'App Server',ip:'10.1.3.12',os:'Adobe ColdFusion 2023',owner:'ana.garcia',risk:'Medio'},
+  {name:'srv-telerik-01',type:'Reporting Server',ip:'10.1.3.25',os:'Progress Telerik',owner:'marta.sanchez',risk:'Bajo'},
+  {name:'srv-vpnclient',type:'VPN Endpoint',ip:'192.168.50.0/24',os:'Varios',owner:'carlos.ruiz',risk:'Bajo'},
+];
+
+let ACTIVITIES = [
+  {text:'CVE-2024-3400 actualizada a En progreso',time:'hace 12 min',color:'#814e83'},
+  {text:'Nueva vulnerabilidad CVE-2024-21762 detectada',time:'hace 45 min',color:'#b83232'},
+  {text:'CVE-2024-38063 remediada y cerrada',time:'hace 2h',color:'#1a7a4a'},
+  {text:'Informe ejecutivo generado · ana.garcia',time:'hace 3h',color:'#7a5080'},
+  {text:'CVE-2024-23897 parche aplicado y verificado',time:'hace 5h',color:'#1a7a4a'},
+  {text:'Activo srv-sftp-01 incorporado al inventario',time:'hace 1d',color:'#b18a20'},
+];
+
+const REPORTS = [
+  {icon:'📊',name:'Informe Ejecutivo',desc:'Resumen de riesgos para dirección y comité de seguridad.'},
+  {icon:'🔍',name:'Análisis Técnico',desc:'Detalle completo con vectores de ataque y remediación.'},
+  {icon:'📋',name:'Cumplimiento',desc:'Estado frente a ISO 27001, ENS y GDPR.'},
+  {icon:'📈',name:'Tendencia Temporal',desc:'Evolución del riesgo. Métricas MTTR y MTTD.'},
+  {icon:'🏢',name:'Por Activo',desc:'Vulnerabilidades por activo con score de riesgo agregado.'},
+  {icon:'⚡',name:'Críticos Urgentes',desc:'CVEs críticos con ventana de explotación estimada.'},
+];
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+let currentPage = 1;
+const PER_PAGE = 8;
+let filteredVulns = [...VULNS];
+
+function sevBadge(s){const m={Crítica:'b-critical',Alta:'b-high',Media:'b-medium',Baja:'b-low'};return`<span class="badge ${m[s]||'b-low'}">${s}</span>`}
+function stBadge(s){const m={'Abierta':'b-open','En progreso':'b-progress','Revisión':'b-review','Cerrada':'b-closed','Aceptada':'b-accepted'};return`<span class="badge ${m[s]||'b-open'}">${s}</span>`}
+function cvssClass(v){return v>=9?'score-crit':v>=7?'score-high':v>=4?'score-med':'score-low'}
+function cvssColor(v){return v>=9?'#b83232':v>=7?'#c25a1a':v>=4?'#b18a20':'#1a7a4a'}
+function riskColor(r){return r==='Crítico'?'#b83232':r==='Alto'?'#c25a1a':r==='Medio'?'#b18a20':'#1a7a4a'}
+function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('open');setTimeout(()=>t.classList.remove('open'),2800)}
+
+// ══════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════
+function renderKPIs(){
+  const total=VULNS.length,crit=VULNS.filter(v=>v.sev==='Crítica').length;
+  const high=VULNS.filter(v=>v.sev==='Alta').length,med=VULNS.filter(v=>v.sev==='Media').length;
+  const low=VULNS.filter(v=>v.sev==='Baja').length,closed=VULNS.filter(v=>v.status==='Cerrada').length;
+  const rate=Math.round((closed/total)*100);
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="card card-accent"><div class="card-title">Total activas</div><div class="kpi-val" style="color:var(--plum-d)">${total}</div><div class="kpi-sub">vulnerabilidades</div></div>
+    <div class="card"><div class="card-title">Críticas</div><div class="kpi-val" style="color:var(--sev-critical)">${crit}</div><div class="kpi-trend up">↑ inmediatas</div></div>
+    <div class="card"><div class="card-title">Altas</div><div class="kpi-val" style="color:var(--sev-high)">${high}</div><div class="kpi-sub">prioridad alta</div></div>
+    <div class="card"><div class="card-title">Medias / Bajas</div><div class="kpi-val" style="color:var(--sev-medium)">${med+low}</div><div class="kpi-sub">${med} medias · ${low} bajas</div></div>
+    <div class="card"><div class="card-title">Remediación</div><div class="kpi-val" style="color:${rate>60?'#1a7a4a':'#c25a1a'}">${rate}%</div><div class="kpi-sub">${closed} cerradas</div></div>`;
+  document.getElementById('badge-open').textContent=VULNS.filter(v=>v.status==='Abierta').length;
+}
+function renderSevBars(){
+  const c={Crítica:0,Alta:0,Media:0,Baja:0};VULNS.forEach(v=>c[v.sev]++);
+  const max=Math.max(...Object.values(c)),col={Crítica:'#b83232',Alta:'#c25a1a',Media:'#b18a20',Baja:'#1a7a4a'};
+  document.getElementById('sev-bar-chart').innerHTML=Object.entries(c).map(([k,v])=>`<div class="bar-row"><span class="bar-label">${k}</span><div class="bar-bg"><div class="bar-fill" style="width:${max?Math.round(v/max*100):0}%;background:${col[k]}"></div></div><span class="bar-val">${v}</span></div>`).join('');
+}
+function renderStatusBars(){
+  const c={'Abierta':0,'En progreso':0,'Revisión':0,'Cerrada':0,'Aceptada':0};VULNS.forEach(v=>c[v.status]=(c[v.status]||0)+1);
+  const max=Math.max(...Object.values(c)),col={'Abierta':'#b83232','En progreso':'#814e83','Revisión':'#b18a20','Cerrada':'#1a7a4a','Aceptada':'#7a5080'};
+  document.getElementById('status-bar-chart').innerHTML=Object.entries(c).map(([k,v])=>`<div class="bar-row"><span class="bar-label">${k}</span><div class="bar-bg"><div class="bar-fill" style="width:${max?Math.round(v/max*100):0}%;background:${col[k]}"></div></div><span class="bar-val">${v}</span></div>`).join('');
+}
+function renderKPIPanel(){
+  const critOpen=VULNS.filter(v=>v.sev==='Crítica'&&v.status==='Abierta').length;
+  const avgCvss=(VULNS.reduce((a,b)=>a+b.cvss,0)/VULNS.length).toFixed(1);
+  const kpis=[{l:'Críticas abiertas',v:critOpen,c:'var(--sev-critical)'},{l:'Total abiertas',v:VULNS.filter(v=>v.status==='Abierta').length,c:'var(--sev-high)'},{l:'CVSS promedio',v:avgCvss,c:'var(--amber)'},{l:'Propietarios',v:[...new Set(VULNS.map(v=>v.owner))].length,c:'var(--plum)'}];
+  document.getElementById('kpi-panel').innerHTML=kpis.map(k=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:.82em;color:var(--text-2)">${k.l}</span><span style="font-family:var(--mono);font-weight:700;font-size:1.05em;color:${k.c}">${k.v}</span></div>`).join('');
+}
+function renderTopAssets(){
+  const c={};VULNS.forEach(v=>c[v.asset]=(c[v.asset]||0)+1);
+  const sorted=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6),max=sorted[0][1];
+  document.getElementById('top-assets').innerHTML=sorted.map(([a,n])=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-family:var(--mono);font-size:.78em;color:var(--text-2)">${a}</span><span style="font-family:var(--mono);font-size:.78em;color:var(--plum-d);font-weight:600">${n}</span></div><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(n/max*100)}%;background:linear-gradient(90deg,var(--magenta),var(--plum))"></div></div></div>`).join('');
+}
+function renderActivity(){
+  document.getElementById('activity-feed').innerHTML=ACTIVITIES.map(a=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);align-items:flex-start"><div style="width:7px;height:7px;border-radius:50%;background:${a.color};margin-top:4px;flex-shrink:0"></div><div><div style="font-size:.82em;color:var(--text-2)">${a.text}</div><div style="font-family:var(--mono);font-size:.68em;color:var(--text-3);margin-top:2px">${a.time}</div></div></div>`).join('');
+}
+function renderRecentTable(){
+  document.getElementById('recent-table-wrap').innerHTML=buildTableHTML(VULNS.slice(0,6),true);
+}
+
+// ══════════════════════════════════════════════════════
+// TABLA PRINCIPAL con INLINE EDIT
+// ══════════════════════════════════════════════════════
+function buildTableHTML(data,compact){
+  const SEV_OPTS=['Crítica','Alta','Media','Baja'];
+  const ST_OPTS=['Abierta','En progreso','Revisión','Cerrada','Aceptada'];
+  const CAT_OPTS=['RCE','Autenticación','Inyección SQL','XSS','SSRF','Criptografía','Configuración','Actualización pendiente','Otro'];
+  let rows=data.map(v=>{
+    const idx=VULNS.indexOf(v);
+    return `<tr ondblclick="showDetail(${idx})" title="Doble clic para detalle completo">
+      <td><span class="cve-id editable" contenteditable="true" onblur="saveField(${idx},'id',this.textContent)">${esc(v.id)}</span></td>
+      <td><span class="editable" style="font-size:.88em" contenteditable="true" onblur="saveField(${idx},'asset',this.textContent)">${esc(v.asset)}</span></td>
+      <td><select class="detail-select" style="font-size:.78em;padding:3px 6px" onchange="saveField(${idx},'sev',this.value);renderAll()">${SEV_OPTS.map(o=>`<option${o===v.sev?' selected':''}>${o}</option>`).join('')}</select></td>
+      <td><span class="cvss-score ${cvssClass(v.cvss)} editable" contenteditable="true" onblur="saveCvss(${idx},this.textContent)">${v.cvss.toFixed(1)}</span></td>
+      <td><select class="detail-select" style="font-size:.78em;padding:3px 6px" onchange="saveField(${idx},'cat',this.value)">${CAT_OPTS.map(o=>`<option${o===v.cat?' selected':''}>${o}</option>`).join('')}</select></td>
+      <td><select class="detail-select" style="font-size:.78em;padding:3px 6px" onchange="saveField(${idx},'status',this.value);renderAll()">${ST_OPTS.map(o=>`<option${o===v.status?' selected':''}>${o}</option>`).join('')}</select></td>
+      <td><span class="editable" style="font-family:var(--mono);font-size:.78em;color:var(--text-3)" contenteditable="true" onblur="saveField(${idx},'owner',this.textContent)">${esc(v.owner)}</span></td>
+      ${!compact?`<td><span class="editable" style="font-family:var(--mono);font-size:.78em;color:var(--text-3)" contenteditable="true" onblur="saveField(${idx},'date',this.textContent)">${v.date}</span></td>`:''}
+      <td><button class="btn-icon" onclick="showDetail(${idx})" title="Editar detalle completo">✎</button></td>
+    </tr>`;
+  }).join('');
+  return `<table class="data-table"><thead><tr><th>CVE ID</th><th>Activo</th><th>Severidad</th><th>CVSS</th><th>Categoría</th><th>Estado</th><th>Responsable</th>${!compact?'<th>Fecha</th>':''}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function saveField(idx,field,val){
+  VULNS[idx][field]=val.trim();
+  showToast('Campo actualizado');
+  renderDashboard();
+}
+function saveCvss(idx,val){
+  const n=parseFloat(val);
+  if(!isNaN(n)&&n>=0&&n<=10){VULNS[idx].cvss=n;showToast('CVSS actualizado')}
+  renderDashboard();
+}
+
+function renderMainTable(){
+  const start=(currentPage-1)*PER_PAGE;
+  document.getElementById('vuln-table-wrap').innerHTML=buildTableHTML(filteredVulns.slice(start,start+PER_PAGE),false);
+  document.getElementById('vuln-count-label').textContent=filteredVulns.length+' resultado'+(filteredVulns.length!==1?'s':'');
+  renderPagination();
+}
+function renderPagination(){
+  const total=Math.ceil(filteredVulns.length/PER_PAGE);
+  document.getElementById('vuln-pagination').innerHTML=Array.from({length:total},(_,i)=>`<button class="pg-btn${i+1===currentPage?' active':''}" onclick="goPage(${i+1})">${i+1}</button>`).join('');
+}
+function goPage(p){currentPage=p;renderMainTable()}
+function filterAndRender(){
+  const q=document.getElementById('search-q').value.toLowerCase();
+  const fs=document.getElementById('filter-sev').value;
+  const fst=document.getElementById('filter-status').value;
+  const fc=document.getElementById('filter-cat').value;
+  filteredVulns=VULNS.filter(v=>(!q||v.id.toLowerCase().includes(q)||v.asset.toLowerCase().includes(q)||v.desc.toLowerCase().includes(q))&&(!fs||v.sev===fs)&&(!fst||v.status===fst)&&(!fc||v.cat===fc));
+  currentPage=1;renderMainTable();
+}
+
+// ══════════════════════════════════════════════════════
+// MODAL DETALLE EDITABLE
+// ══════════════════════════════════════════════════════
+function showDetail(idx){
+  const v=VULNS[idx];
+  const fillW=Math.round(v.cvss/10*100);
+  const SEV_OPTS=['Crítica','Alta','Media','Baja'];
+  const ST_OPTS=['Abierta','En progreso','Revisión','Cerrada','Aceptada'];
+  const CAT_OPTS=['RCE','Autenticación','Inyección SQL','XSS','SSRF','Criptografía','Configuración','Actualización pendiente','Otro'];
+  document.getElementById('modal-detail-content').innerHTML=`
+    <button class="modal-close" onclick="closeModal('modal-detail')">×</button>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px">
+      <div>
+        <div class="detail-editable cve-id" style="font-size:1.1em;display:inline-block" contenteditable="true" onblur="saveField(${idx},'id',this.textContent);updateDetailHeader(${idx})">${esc(v.id)}</div>
+        <div style="font-size:.78em;color:var(--text-3);margin-top:4px;font-family:var(--mono)">
+          Activo: <span class="detail-editable" style="display:inline" contenteditable="true" onblur="saveField(${idx},'asset',this.textContent)">${esc(v.asset)}</span>
+          &nbsp;·&nbsp;
+          <span class="detail-editable" style="display:inline" contenteditable="true" onblur="saveField(${idx},'date',this.textContent)">${v.date}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;flex-shrink:0">${sevBadge(v.sev)} ${stBadge(v.status)}</div>
+    </div>
+    <div class="vc-meta" style="margin-bottom:16px">
+      <div class="vc-meta-item"><div class="vc-meta-label">Severidad</div>
+        <select class="detail-select" id="det-sev-${idx}" onchange="saveField(${idx},'sev',this.value);refreshDetailBadges(${idx})">${SEV_OPTS.map(o=>`<option${o===v.sev?' selected':''}>${o}</option>`).join('')}</select>
+      </div>
+      <div class="vc-meta-item"><div class="vc-meta-label">Estado</div>
+        <select class="detail-select" id="det-st-${idx}" onchange="saveField(${idx},'status',this.value);refreshDetailBadges(${idx})">${ST_OPTS.map(o=>`<option${o===v.status?' selected':''}>${o}</option>`).join('')}</select>
+      </div>
+      <div class="vc-meta-item"><div class="vc-meta-label">Categoría</div>
+        <select class="detail-select" onchange="saveField(${idx},'cat',this.value)">${CAT_OPTS.map(o=>`<option${o===v.cat?' selected':''}>${o}</option>`).join('')}</select>
+      </div>
+      <div class="vc-meta-item"><div class="vc-meta-label">Responsable</div>
+        <div class="detail-editable" contenteditable="true" style="font-family:var(--mono);font-size:.82em" onblur="saveField(${idx},'owner',this.textContent)">${esc(v.owner)}</div>
+      </div>
+    </div>
+    <div class="cvss-section" id="cvss-section-${idx}">
+      <div class="cvss-header">
+        <span>Puntuación CVSS v3.1</span>
+        <span class="cvss-score ${cvssClass(v.cvss)}" id="cvss-display-${idx}">${v.cvss.toFixed(1)} / 10.0</span>
+      </div>
+      <input type="range" min="0" max="10" step="0.1" value="${v.cvss}" style="width:100%;margin-bottom:6px;accent-color:var(--plum)"
+        oninput="updateCvssSlider(${idx},this.value)">
+      <div class="cvss-bar-track"><div class="fill" id="cvss-bar-${idx}" style="width:${fillW}%;background:${cvssColor(v.cvss)}"></div></div>
+    </div>
+    <div class="detail-field-wrap">
+      <label>Descripción <span style="color:var(--text-3);font-size:.85em;text-transform:none;letter-spacing:0">(editable)</span></label>
+      <div class="detail-editable" contenteditable="true" onblur="saveField(${idx},'desc',this.textContent)">${esc(v.desc)}</div>
+    </div>
+    <div class="detail-field-wrap">
+      <label>Pasos de remediación <span style="color:var(--text-3);font-size:.85em;text-transform:none;letter-spacing:0">(editable)</span></label>
+      <div class="detail-editable" contenteditable="true" style="border-left:3px solid var(--sev-low)" onblur="saveField(${idx},'remediation',this.textContent)">${esc(v.remediation)}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="btn btn-primary btn-sm" onclick="changeStatus(${idx},'En progreso')">▶ Iniciar remediación</button>
+      <button class="btn btn-ghost btn-sm" onclick="changeStatus(${idx},'Revisión')">⏸ En revisión</button>
+      <button class="btn btn-ghost btn-sm" onclick="changeStatus(${idx},'Cerrada')">✓ Cerrar</button>
+      <button class="btn btn-danger btn-sm" onclick="changeStatus(${idx},'Aceptada')">⚑ Aceptar riesgo</button>
+      <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteVuln(${idx})">🗑 Eliminar</button>
+    </div>`;
+  document.getElementById('modal-detail').classList.add('open');
+}
+
+function updateCvssSlider(idx,val){
+  const n=parseFloat(val);
+  VULNS[idx].cvss=n;
+  const el=document.getElementById(`cvss-display-${idx}`);
+  const bar=document.getElementById(`cvss-bar-${idx}`);
+  if(el){el.textContent=n.toFixed(1)+' / 10.0';el.className='cvss-score '+cvssClass(n)}
+  if(bar){bar.style.width=Math.round(n/10*100)+'%';bar.style.background=cvssColor(n)}
+  renderDashboard();
+}
+function refreshDetailBadges(idx){
+  const v=VULNS[idx];
+  const wrap=document.querySelector('#modal-detail-content .kpi-trend')?.parentElement;
+  // update the badge row in header
+  const badgeDiv=document.querySelector('#modal-detail-content [style*="flex-wrap:wrap;flex-shrink"]');
+  if(badgeDiv) badgeDiv.innerHTML=sevBadge(v.sev)+' '+stBadge(v.status);
+  renderAll();
+}
+function changeStatus(idx,st){
+  VULNS[idx].status=st;
+  ACTIVITIES.unshift({text:`${VULNS[idx].id} → ${st}`,time:'ahora',color:'#814e83'});
+  closeModal('modal-detail');renderAll();showToast('Estado: '+st);
+}
+function deleteVuln(idx){
+  if(!confirm(`¿Eliminar ${VULNS[idx].id}?`)) return;
+  ACTIVITIES.unshift({text:`${VULNS[idx].id} eliminada`,time:'ahora',color:'#b83232'});
+  VULNS.splice(idx,1);filteredVulns=[...VULNS];
+  closeModal('modal-detail');renderAll();showToast('Vulnerabilidad eliminada');
+}
+
+// ══════════════════════════════════════════════════════
+// KANBAN con DRAG & DROP
+// ══════════════════════════════════════════════════════
+let dragItem=null, dragOriginCol=null;
+
+function renderKanban(){
+  const cols=[
+    {key:'Abierta',dot:'#b83232'},
+    {key:'En progreso',dot:'#814e83'},
+    {key:'Revisión',dot:'#b18a20'},
+    {key:'Cerrada',dot:'#1a7a4a'},
+  ];
+  const board=document.getElementById('kanban-board');
+  board.innerHTML=cols.map(col=>{
+    const items=VULNS.filter(v=>v.status===col.key);
+    return `<div class="kanban-col" data-col="${col.key}"
+      ondragover="onColDragOver(event,this)"
+      ondragleave="onColDragLeave(this)"
+      ondrop="onColDrop(event,this)">
+      <div class="kanban-col-header">
+        <div style="width:9px;height:9px;border-radius:50%;background:${col.dot}"></div>
+        <span class="kanban-col-title">${col.key}</span>
+        <span class="kanban-count">${items.length}</span>
+      </div>
+      <div class="drop-indicator" data-indicator="${col.key}"></div>
+      ${items.map(v=>{
+        const idx=VULNS.indexOf(v);
+        return `<div class="inc-card" draggable="true" data-idx="${idx}"
+          ondragstart="onCardDragStart(event,this)"
+          ondragend="onCardDragEnd(this)"
+          ondragover="onCardDragOver(event,this)"
+          ondragleave="onCardDragLeave(this)"
+          ondrop="onCardDrop(event,this)">
+          <div class="inc-card-actions">
+            <button class="btn-icon" onclick="showDetail(${idx})" title="Editar">✎</button>
+            <button class="btn-icon" onclick="deleteVuln(${idx})" title="Eliminar" style="color:var(--sev-critical)">🗑</button>
+          </div>
+          <div class="inc-card-title">${esc(v.id)}</div>
+          <div style="font-size:.76em;color:var(--text-3);margin-bottom:6px;font-family:var(--mono)">${esc(v.asset)}</div>
+          <div class="inc-meta">
+            <div class="inc-priority" style="background:${cvssColor(v.cvss)}"></div>
+            <span class="inc-assigned">${esc(v.owner)}</span>
+            <span class="inc-date">${v.date}</span>
+          </div>
+          <div class="inc-tags">
+            ${sevBadge(v.sev)}
+            <span class="inc-tag">${esc(v.cat)}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function onCardDragStart(e,el){
+  dragItem=el;
+  dragOriginCol=el.closest('.kanban-col').dataset.col;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',el.dataset.idx);
+  setTimeout(()=>el.classList.add('dragging'),0);
+}
+function onCardDragEnd(el){
+  el.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+  document.querySelectorAll('.drop-indicator').forEach(d=>d.classList.remove('visible'));
+  document.querySelectorAll('.inc-card').forEach(c=>c.style.marginTop='');
+  dragItem=null;
+}
+function onColDragOver(e,col){
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  col.classList.add('drag-over');
+}
+function onColDragLeave(col){
+  // only remove if leaving the column entirely
+  col.classList.remove('drag-over');
+}
+function onColDrop(e,col){
+  e.preventDefault();
+  const idx=parseInt(e.dataTransfer.getData('text/plain'));
+  const newStatus=col.dataset.col;
+  if(!isNaN(idx)&&VULNS[idx]){
+    VULNS[idx].status=newStatus;
+    ACTIVITIES.unshift({text:`${VULNS[idx].id} movida a ${newStatus}`,time:'ahora',color:'#814e83'});
+    showToast(`Movido a "${newStatus}"`);
+  }
+  col.classList.remove('drag-over');
+  document.querySelectorAll('.drop-indicator').forEach(d=>d.classList.remove('visible'));
+  renderAll();
+}
+// card-over-card reorder / insert indicator
+function onCardDragOver(e,card){
+  if(!dragItem||dragItem===card) return;
+  e.preventDefault();e.stopPropagation();
+  const col=card.closest('.kanban-col');
+  col.classList.add('drag-over');
+  const rect=card.getBoundingClientRect();
+  const mid=rect.top+rect.height/2;
+  if(e.clientY<mid){
+    card.style.marginTop='10px';
+  } else {
+    card.style.marginTop='';
+  }
+}
+function onCardDragLeave(card){card.style.marginTop='';}
+function onCardDrop(e,card){
+  e.preventDefault();e.stopPropagation();
+  const fromIdx=parseInt(e.dataTransfer.getData('text/plain'));
+  const toIdx=parseInt(card.dataset.idx);
+  const newStatus=card.closest('.kanban-col').dataset.col;
+  if(!isNaN(fromIdx)&&!isNaN(toIdx)&&fromIdx!==toIdx){
+    // reorder within VULNS
+    const item=VULNS.splice(fromIdx,1)[0];
+    item.status=newStatus;
+    const newTo=VULNS.indexOf(VULNS[toIdx<fromIdx?toIdx:toIdx-1]);
+    const insertAt=toIdx<fromIdx?toIdx:toIdx;
+    VULNS.splice(Math.max(0,insertAt),0,item);
+    ACTIVITIES.unshift({text:`${item.id} reordenada en ${newStatus}`,time:'ahora',color:'#814e83'});
+    showToast(`Movido a "${newStatus}"`);
+  }
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════
+// ACTIVOS EDITABLE
+// ══════════════════════════════════════════════════════
+function renderAssets(){
+  const withCount=ASSETS.map(a=>({...a,vc:VULNS.filter(v=>v.asset===a.name).length}));
+  const RISK_OPTS=['Crítico','Alto','Medio','Bajo'];
+  document.getElementById('assets-table-wrap').innerHTML=`
+    <table class="data-table">
+      <thead><tr><th>Activo</th><th>Tipo</th><th>IP / Red</th><th>Sistema</th><th>Responsable</th><th>Vulns</th><th>Riesgo</th><th></th></tr></thead>
+      <tbody>${withCount.map((a,i)=>`<tr>
+        <td><span class="cve-id editable" contenteditable="true" onblur="saveAsset(${i},'name',this.textContent)">${esc(a.name)}</span></td>
+        <td><span class="editable" style="font-size:.84em" contenteditable="true" onblur="saveAsset(${i},'type',this.textContent)">${esc(a.type)}</span></td>
+        <td><span class="editable" style="font-family:var(--mono);font-size:.78em;color:var(--text-3)" contenteditable="true" onblur="saveAsset(${i},'ip',this.textContent)">${esc(a.ip)}</span></td>
+        <td><span class="editable" style="font-family:var(--mono);font-size:.78em;color:var(--text-3)" contenteditable="true" onblur="saveAsset(${i},'os',this.textContent)">${esc(a.os)}</span></td>
+        <td><span class="editable" style="font-family:var(--mono);font-size:.78em;color:var(--text-3)" contenteditable="true" onblur="saveAsset(${i},'owner',this.textContent)">${esc(a.owner)}</span></td>
+        <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--plum-d)">${a.vc}</td>
+        <td><select class="detail-select" style="font-size:.82em" onchange="saveAsset(${i},'risk',this.value);renderAssets()">${RISK_OPTS.map(o=>`<option${o===a.risk?' selected':''}>${o}</option>`).join('')}</select></td>
+        <td><button class="btn-icon" style="color:var(--sev-critical)" onclick="deleteAsset(${i})" title="Eliminar activo">🗑</button></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+function saveAsset(idx,field,val){ASSETS[idx][field]=val.trim();showToast('Activo actualizado')}
+function deleteAsset(idx){if(confirm('¿Eliminar activo?')){ASSETS.splice(idx,1);renderAssets();showToast('Activo eliminado')}}
+
+// ══════════════════════════════════════════════════════
+// REPORTS
+// ══════════════════════════════════════════════════════
+function renderReports(){
+  document.getElementById('reports-grid').innerHTML=REPORTS.map(r=>`
+    <div class="report-card" onclick="showToast('Generando: ${r.name}...')">
+      <div class="report-icon">${r.icon}</div>
+      <div class="report-name">${r.name}</div>
+      <div class="report-desc">${r.desc}</div>
+      <button class="btn btn-plum btn-sm" style="width:100%;margin-top:4px">Generar →</button>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// MODALS / ACTIONS
+// ══════════════════════════════════════════════════════
+function openNewVuln(){document.getElementById('modal-new').classList.add('open')}
+function openExport(){document.getElementById('modal-export').classList.add('open')}
+function openNewAsset(){document.getElementById('modal-asset').classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+
+function saveNewVuln(){
+  const cve=document.getElementById('f-cve').value.trim();
+  const asset=document.getElementById('f-asset').value.trim();
+  if(!cve||!asset){showToast('CVE ID y Activo son obligatorios');return}
+  VULNS.unshift({id:cve,asset,sev:document.getElementById('f-sev').value,cvss:parseFloat(document.getElementById('f-cvss').value)||5.0,cat:document.getElementById('f-cat').value,status:'Abierta',owner:document.getElementById('f-owner').value||'sin.asignar',date:new Date().toISOString().split('T')[0],desc:document.getElementById('f-desc').value||'Sin descripción.',remediation:document.getElementById('f-remediation').value||'Pendiente.'});
+  ACTIVITIES.unshift({text:`Nueva: ${cve} registrada`,time:'ahora',color:'#b83232'});
+  ['f-cve','f-asset','f-cvss','f-owner','f-desc','f-remediation'].forEach(id=>document.getElementById(id).value='');
+  filteredVulns=[...VULNS];closeModal('modal-new');renderAll();showToast('Vulnerabilidad '+cve+' registrada');
+}
+function saveNewAsset(){
+  const name=document.getElementById('a-name').value.trim();
+  if(!name){showToast('El nombre es obligatorio');return}
+  ASSETS.push({name,type:document.getElementById('a-type').value,ip:document.getElementById('a-ip').value,os:document.getElementById('a-os').value,owner:document.getElementById('a-owner').value,risk:document.getElementById('a-risk').value});
+  ['a-name','a-type','a-ip','a-os','a-owner'].forEach(id=>document.getElementById(id).value='');
+  closeModal('modal-asset');renderAssets();showToast('Activo añadido');
+}
+function doExport(fmt){
+  closeModal('modal-export');
+  if(fmt==='csv'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['ID,Activo,Severidad,CVSS,Categoría,Estado,Responsable,Fecha\n',...VULNS.map(v=>`${v.id},"${v.asset}",${v.sev},${v.cvss},${v.cat},${v.status},"${v.owner}",${v.date}`)].join('\n'),{type:'text/csv'}));a.download='vulntrack.csv';a.click();}
+  else if(fmt==='json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(VULNS,null,2)],{type:'application/json'}));a.download='vulntrack.json';a.click();}
+  else showToast('Generando '+fmt.toUpperCase()+'...');
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  const el=document.querySelector(`[onclick="showView('${id}')"]`);if(el)el.classList.add('active');
+  if(id==='kanban')renderKanban();
+  if(id==='vulnerabilities'){filteredVulns=[...VULNS];renderMainTable();}
+  if(id==='assets')renderAssets();
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER ALL
+// ══════════════════════════════════════════════════════
+function renderDashboard(){
+  renderKPIs();renderSevBars();renderStatusBars();renderKPIPanel();renderTopAssets();renderActivity();renderRecentTable();
+}
+function renderAll(){
+  renderDashboard();renderAssets();renderReports();
+  filteredVulns=[...VULNS];renderMainTable();
+  if(document.getElementById('view-kanban').classList.contains('active'))renderKanban();
+}
+
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleTimeString('es-ES',{hour12:false});
+  document.getElementById('dash-date').textContent=now.toLocaleDateString('es-ES',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+}
+
+// ── INIT ──
+renderAll();
+updateClock();
+setInterval(updateClock,1000);
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('open'))});
+</script>
+</body>
+</html>
